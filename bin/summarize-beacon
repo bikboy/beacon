@@ -1,1 +1,49 @@
-# Placeholder for your script.
+#!/usr/bin/env python3
+
+import sys
+import argparse
+import collections
+import dateparser
+import datetime
+import beacon
+
+
+def text_datetime(arg):
+    dt = dateparser.parse(arg)
+    if dt is None:
+        raise argparse.ArgumentTypeError(
+          "Is it a text date?".format(arg))
+    return dt
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--from", dest="_from", type=text_datetime)
+    parser.add_argument("--to", type=text_datetime)
+    args = parser.parse_args()
+
+    date_from = args._from or datetime.datetime.now()
+    date_to = args.to or date_from
+
+    if date_from > date_to:
+        parser.error("--from later then --to")
+        return 1
+    if date_from.timestamp() < beacon.MIN_TIME:
+        parser.error("--from less then MIN date "
+                     "epoch time {} ({})".format(
+                       beacon.MIN_TIME,
+                       datetime.datetime.fromtimestamp(beacon.MIN_TIME)))
+        return 1
+
+    chars = collections.defaultdict(int)
+    beacons = list(
+      beacon.request(date_from, date_to))
+    for b in beacons:
+        for char in b["outputValue"]:
+            chars[char] += 1
+    for char in sorted(chars.keys()):
+        print("{},{}".format(char, chars[char]))
+
+
+if __name__ == "__main__":
+    sys.exit(main())
